@@ -74,8 +74,16 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(morgan('combined'));
 app.use(express.static(path.join(__dirname, '../frontend')));
 
+// ─── Localhost-only guard for sharer dashboard + API ─────────────────────────
+function localhostOnly(req, res, next) {
+  const ip = req.ip || req.connection.remoteAddress || '';
+  const clean = ip.replace(/^::ffff:/, '');
+  if (clean === '127.0.0.1' || clean === '::1' || clean === 'localhost') return next();
+  return res.status(403).json({ error: 'Sharer dashboard is only accessible from localhost' });
+}
+
 // ─── API Routes ───────────────────────────────────────────────────────────────
-app.use('/api/shares', sharesRouter);
+app.use('/api/shares', localhostOnly, sharesRouter);
 app.use('/api/access', accessRouter);
 
 // ─── Signed Direct Download Endpoint ─────────────────────────────────────────
@@ -108,7 +116,7 @@ app.get('/dl', (req, res) => {
 });
 
 // ─── Frontend Routes ──────────────────────────────────────────────────────────
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../frontend/sharer/index.html')));
+app.get('/', localhostOnly, (req, res) => res.sendFile(path.join(__dirname, '../frontend/sharer/index.html')));
 app.get('/share/:token', (req, res) => res.sendFile(path.join(__dirname, '../frontend/receiver/index.html')));
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString(), version: '2.0.0' }));
 
