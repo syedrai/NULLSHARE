@@ -121,6 +121,55 @@ router.post('/:id/scan', async (req, res) => {
   res.json({ shareId: share.id, label: share.label, scan });
 });
 
+// ── GET /api/shares/fs-browse?path= — filesystem folder navigator ─────────────
+router.get('/fs-browse', (req, res) => {
+  let reqPath = req.query.path || '';
+  // If empty, return drive roots on Windows or / on Unix
+  if (!reqPath) {
+    if (process.platform === 'win32') {
+      const drives = [];
+      for (let i = 65; i <= 90; i++) {
+        const d = String.fromCharCode(i) + ':\\';
+        try { fs.accessSync(d); drives.push({ name: d, path: d, type: 'drive' }); } catch {}
+      }
+      return res.json({ current: '', entries: drives });
+    }
+    reqPath = '/';
+  }
+  let resolved;
+  try { resolved = path.resolve(reqPath); } catch { return res.status(400).json({ error: 'Invalid path' }); }
+  try {
+    const entries = fs.readdirSync(resolved, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => ({ name: d.name, path: path.join(resolved, d.name), type: 'dir' }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const parent = path.dirname(resolved) !== resolved ? path.dirname(resolved) : null;
+    res.json({ current: resolved, parent, entries });
+  } catch (err) {
+    res.status(403).json({ error: 'Cannot read directory: ' + err.message });
+  }
+});
+
+// ── GET /api/shares/browse-folder — native folder picker (Windows PowerShell) ─
+router.get('/browse-folder', async (req, res) => {
+  const { spawn } = require('child_process');
+  const ps = spawn('powershell', [
+    '-NoProfile', '-Command',
+    '[System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null;' +
+    '$f = New-Object System.Windows.Forms.FolderBrowserDialog;' +
+    '$f.Description = "Select folder to share";' +
+    'if ($f.ShowDialog() -eq "OK") { Write-Output $f.SelectedPath }'
+  ]);
+  let out = '';
+  ps.stdout.on('data', d => { out += d.toString(); });
+  ps.on('close', () => {
+    const p = out.trim();
+    if (!p) return res.json({ cancelled: true });
+    res.json({ path: p });
+  });
+  ps.on('error', () => res.status(500).json({ error: 'PowerShell unavailable' }));
+});
+
 function csvEscape(s) {
   if (!s) return '';
   const str = String(s).replace(/"/g, '""');
