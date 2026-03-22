@@ -530,9 +530,8 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ## 📞 Contact
 
-- **Email:** [nullfist@nullgrids.com](mailto:nullfist@nullgrids.com)
-- **Twitter / X:** [@nullfist](https://twitter.com/nullfist)
-- **Discord:** NullGrids Community
+- **Email:** [syedraihaan@gmail.com](mailto:nullfist@nullgrids.com)
+- 
 
 ---
 
