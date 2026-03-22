@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NullShare — Shared Files</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap');
+:root{--bg:#0d0d14;--surface:#13131e;--surface2:#1c1c2d;--border:#252535;--accent:#7c3aed;--accent2:#06b6d4;--danger:#ef4444;--success:#22c55e;--warn:#f59e0b;--text:#e2e8f0;--dim:#64748b;--mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{font-weight:800;font-size:18px}.logo span{color:var(--accent)}
+.header-right{display:flex;align-items:center;gap:12px}
+.perm-badge{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:4px;background:rgba(124,58,237,.2);color:#a78bfa;border:1px solid rgba(124,58,237,.3)}
+.expiry-chip{font-family:var(--mono);font-size:10px;color:var(--warn);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);padding:3px 9px;border-radius:4px}
+#auth-screen{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:44px;width:420px;text-align:center}
+.auth-icon{width:60px;height:60px;background:rgba(117, 45, 240, 0.15);border:1px solid rgba(124,58,237,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 22px}
+.auth-title{font-size:20px;font-weight:800;margin-bottom:7px}
+.auth-sub{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:28px}
+.auth-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:13px 16px;color:var(--text);font-family:var(--mono);font-size:14px;outline:none;margin-bottom:14px;text-align:center;letter-spacing:2px;transition:border-color .15s}
+.auth-input:focus{border-color:var(--accent)}
+.auth-input::placeholder{letter-spacing:0;color:var(--dim)}
+.auth-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:var(--sans);font-weight:700;font-size:14px;cursor:pointer;transition:all .15s}
+.auth-btn:hover{background:#6d28d9;transform:translateY(-1px)}
+.auth-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.auth-error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--danger);border-radius:8px;padding:11px;font-family:var(--mono);font-size:12px;margin-top:14px;display:none}
+#browser-screen{display:none;flex:1;max-width:1100px;width:100%;margin:0 auto;padding:28px}
+.breadcrumb{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;margin-bottom:16px;flex-wrap:wrap}
+.bc-part{color:var(--accent2);cursor:pointer}.bc-part:hover{text-decoration:underline}
+.bc-sep{color:var(--dim)}.bc-current{color:var(--text)}
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.file-count{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.file-list{display:flex;flex-direction:column;gap:3px}
+.file-row{display:grid;grid-template-columns:32px 1fr auto auto;align-items:center;gap:14px;padding:11px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .12s}
+.file-row:hover{background:var(--surface2);border-color:rgba(124,58,237,.3)}
+.file-row.is-dir:hover{border-color:rgba(6,182,212,.3)}
+.file-icon{font-size:17px;display:flex;align-items:center;justify-content:center}
+.file-name{font-weight:600;font-size:13px}
+.file-meta{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:2px}
+.file-size{font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap}
+.file-actions{display:flex;gap:7px;opacity:0;transition:opacity .15s}
+.file-row:hover .file-actions{opacity:1}
+.act-btn{padding:5px 11px;border-radius:6px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;transition:all .1s;border:1px solid}
+.act-preview{background:rgba(6,182,212,.1);color:var(--accent2);border-color:rgba(6,182,212,.3)}
+.act-preview:hover{background:rgba(6,182,212,.2)}
+.act-download{background:rgba(124,58,237,.15);color:#a78bfa;border-color:rgba(124,58,237,.3)}
+.act-download:hover{background:rgba(124,58,237,.25)}
+.act-download.downloading{opacity:.7;cursor:not-allowed}
+#dl-toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:500;width:300px}
+.dl-toast{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;animation:slideIn .3s ease}
+@keyframes slideIn{from{transform:translateX(120%)}to{transform:translateX(0)}}
+.dl-toast-name{font-size:12px;font-weight:700;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-bar-bg{background:var(--bg);border-radius:4px;height:6px;overflow:hidden}
+.dl-bar{height:6px;background:var(--accent);border-radius:4px;transition:width .2s;width:0%}
+.dl-status{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:6px;display:flex;justify-content:space-between}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:40px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:900px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border)}
+.modal-title{font-weight:700;font-size:14px;font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80%}
+.modal-close{background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px}
+.modal-close:hover{color:var(--text);background:var(--surface2)}
+.modal-body{flex:1;overflow:auto;padding:20px;display:flex;align-items:center;justify-content:center}
+.modal-body img{max-width:100%;max-height:65vh;object-fit:contain;border-radius:8px}
+.modal-body iframe{width:100%;height:65vh;border:none;border-radius:8px;background:#fff}
+.modal-body pre{font-family:var(--mono);font-size:12px;color:var(--text);white-space:pre-wrap;word-break:break-all;width:100%;max-height:65vh;overflow:auto;line-height:1.6}
+.modal-body audio{width:100%}
+.state-box{text-align:center;padding:60px 20px;font-family:var(--mono);font-size:12px;color:var(--dim)}
+.state-icon{font-size:40px;margin-bottom:14px}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="logo">Null<span>Share</span></div>
+  <div class="header-right" id="header-right" style="display:none">
+    <span id="header-label" style="font-family:var(--mono);font-size:12px;color:var(--dim)"></span>
+    <span class="perm-badge" id="header-perm"></span>
+    <span class="expiry-chip" id="header-expiry" style="display:none"></span>
+  </div>
+</header>
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-icon">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2">
+        <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+      </svg>
+    </div>
+    <div class="auth-title">Shared Folder Access</div>
+    <div class="auth-sub" id="auth-sub">Verifying share link...</div>
+    <div id="pw-section" style="display:none">
+      <input type="password" class="auth-input" id="pw-input" placeholder="Enter access password">
+    </div>
+    <button class="auth-btn" id="auth-btn">Access Files →</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+<div id="browser-screen">
+  <div id="breadcrumb" class="breadcrumb"></div>
+  <div class="toolbar">
+    <div class="file-count" id="file-count"></div>
+    <div id="zip-toolbar"></div>
+  </div>
+  <div id="file-list" class="file-list"></div>
+</div>
+<div id="dl-toasts"></div>
+<div class="modal-overlay" id="preview-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="preview-title">Preview</div>
+      <button class="modal-close" data-action="close-preview">✕</button>
+    </div>
+    <div class="modal-body" id="preview-body"></div>
+  </div>
+</div>
+<script>
+const TOKEN = location.pathname.split('/share/')[1]?.split('/')[0];
+let SESSION_JWT = null, SHARE_PERM = 'view', currentPath = '';
+const API = '/api';
+
+async function init() {
+  if (!TOKEN) return showAuthError('Invalid share link — no token found.');
+  try {
+    const res = await fetch(`${API}/access/${TOKEN}/info`);
+    const data = await res.json();
+    if (!res.ok) { showAuthError(data.error || 'Invalid or expired share link.'); document.getElementById('auth-btn').disabled = true; return; }
+    document.getElementById('auth-sub').textContent = `"${data.label}" — ${data.passwordProtected ? 'Password required' : 'Click below to access'}`;
+    if (data.passwordProtected) { document.getElementById('pw-section').style.display = 'block'; document.getElementById('auth-btn').textContent = 'Unlock →'; }
+    if (data.expiresAt) {
+      const mins = Math.max(0, Math.floor((data.expiresAt - Date.now()) / 60000));
+      const chip = document.getElementById('header-expiry');
+      chip.textContent = `⏱ ${mins}m left`;
+      chip.style.display = 'flex';
+      document.getElementById('header-right').style.display = 'flex';
+    }
+  } catch { showAuthError('Cannot reach the share server.'); }
+}
+
+async function authenticate() {
+  const btn = document.getElementById('auth-btn');
+  btn.disabled = true; btn.textContent = 'Verifying...';
+  hideAuthError();
+  const pw = document.getElementById('pw-input').value;
+  try {
+    const res = await fetch(`${API}/access/${TOKEN}/auth`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
+    const data = await res.json();
+    if (!res.ok) {
+      if (data.code === 'PASSWORD_REQUIRED') document.getElementById('pw-section').style.display = 'block';
+      showAuthError(data.error || 'Authentication failed');
+      btn.disabled = false; btn.textContent = pw ? 'Try Again →' : 'Access Files →';
+      return;
+    }
+    SESSION_JWT = data.sessionToken;
+    SHARE_PERM = data.permission;
+    document.getElementById('header-label').textContent = data.label;
+    document.getElementById('header-perm').textContent = SHARE_PERM === 'download' ? '⬇ Download' : '👁 View Only';
+    if (data.expiresAt) { const chip = document.getElementById('header-expiry'); chip.style.display='flex'; }
+    document.getElementById('header-right').style.display = 'flex';
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('browser-screen').style.display = 'block';
+    loadDirectory('');
+  } catch (err) { showAuthError('Connection error: ' + err.message); btn.disabled = false; btn.textContent = 'Try Again →'; }
+}
+
+async function loadDirectory(path) {
+  currentPath = path;
+  renderBreadcrumb(path);
+  const c = document.getElementById('file-list');
+  c.innerHTML = '<div class="state-box"><div>Loading...</div></div>';
+  try {
+    const res = await fetchAuth(`${API}/access/${TOKEN}/files?path=${encodeURIComponent(path)}`);
+    if (res.status === 401) { location.reload(); return; }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    renderFiles(data.entries);
+    document.getElementById('file-count').textContent = `${data.entries.length} item${data.entries.length !== 1 ? 's' : ''}`;
+    // Show "Download folder as ZIP" button in toolbar if download permission
+    const zipToolbar = document.getElementById('zip-toolbar');
+    if (SHARE_PERM === 'download') {
+      const folderName = path ? path.split('/').filter(Boolean).pop() || 'root' : 'root';
+      zipToolbar.innerHTML = `<button class="act-btn act-download" data-action="zip" data-path="${escAttr(path)}" data-name="${escAttr(folderName)}" style="opacity:1">⬇ Download Folder as ZIP</button>`;
+    } else {
+      zipToolbar.innerHTML = '';
+    }
+  } catch (err) {
+    c.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div>${escHtml(err.message)}</div>`;
+    document.getElementById('zip-toolbar').innerHTML = '';
+  }
+}
+
+function renderFiles(entries) {
+  const c = document.getElementById('file-list');
+  if (!entries.length) { c.innerHTML = '<div class="state-box"><div class="state-icon">📁</div>This folder is empty</div>'; return; }
+  c.innerHTML = entries.map(e => {
+    const icon = e.type === 'directory' ? '📁' : fileIcon(e.mimeType, e.name);
+    const size = e.type === 'file' ? fmtSize(e.size) : '';
+    const mod = new Date(e.modified).toLocaleDateString();
+    const previewBtn = e.type === 'file' && e.previewable ? `<button class="act-btn act-preview" data-action="preview" data-path="${escAttr(e.path)}" data-name="${escAttr(e.name)}" data-mime="${escAttr(e.mimeType)}">Preview</button>` : '';
+    const dlBtn = SHARE_PERM === 'download' && e.type === 'file' ? `<button class="act-btn act-download" data-action="download" data-path="${escAttr(e.path)}" data-name="${escAttr(e.name)}">Download</button>` : '';
+    const browseBtn = e.type === 'directory' ? `<button class="act-btn act-preview" data-action="nav" data-path="${escAttr(e.path)}">Browse</button>` : '';
+    const zipBtn = SHARE_PERM === 'download' && e.type === 'directory' ? `<button class="act-btn act-download" data-action="zip" data-path="${escAttr(e.path)}" data-name="${escAttr(e.name)}">⬇ ZIP</button>` : '';
+    return `<div class="file-row${e.type==='directory'?' is-dir':''}" data-type="${e.type}" data-path="${escAttr(e.path)}">
+      <div class="file-icon">${icon}</div>
+      <div><div class="file-name">${escHtml(e.name)}</div><div class="file-meta">${mod}${e.mimeType?' · '+e.mimeType:''}</div></div>
+      <div class="file-size">${size}</div>
+      <div class="file-actions">${previewBtn}${dlBtn}${browseBtn}${zipBtn}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderBreadcrumb(path) {
+  const bc = document.getElementById('breadcrumb');
+  const parts = path ? path.split('/').filter(Boolean) : [];
+  let html = `<span class="bc-part" data-action="nav" data-path="">Root</span>`;
+  let acc = '';
+  parts.forEach((p, i) => {
+    acc += (acc ? '/' : '') + p;
+    html += `<span class="bc-sep">/</span>`;
+    if (i === parts.length - 1) html += `<span class="bc-current">${escHtml(p)}</span>`;
+    else html += `<span class="bc-part" data-action="nav" data-path="${escAttr(acc)}">${escHtml(p)}</span>`;
+  });
+  bc.innerHTML = html;
+}
+
+async function downloadFile(path, name) {
+  const toastId = 'toast-' + Date.now();
+  createToast(toastId, name);
+  try {
+    const res = await fetchAuth(`${API}/access/${TOKEN}/download?path=${encodeURIComponent(path)}`);
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+
+    const total = parseInt(res.headers.get('Content-Length') || '0');
+    const encKey = res.headers.get('X-Encryption-Key');
+    const reader = res.body.getReader();
+    const chunks = [];
+    let received = 0;
+
+    // Chunked read — works with or without Content-Length
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      // If Content-Length known: show %; otherwise show bytes received
+      if (total) updateToast(toastId, received, total);
+      else updateToastIndeterminate(toastId, received);
+    }
+
+    let blob;
+    if (encKey) {
+      // Decrypt AES-256-GCM stream using Web Crypto
+      blob = await decryptBlob(chunks, encKey);
+    } else {
+      blob = new Blob(chunks);
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    finishToast(toastId, true);
+  } catch (err) {
+    finishToast(toastId, false, err.message);
+  }
+}
+
+async function downloadZip(path, name) {
+  const toastId = 'toast-' + Date.now();
+  createToast(toastId, (name || 'folder') + '.zip');
+  try {
+    const res = await fetchAuth(`${API}/access/${TOKEN}/zip?path=${encodeURIComponent(path)}`);
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+    const total = parseInt(res.headers.get('Content-Length') || '0');
+    const reader = res.body.getReader();
+    const chunks = [];
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value); received += value.length;
+      if (total) updateToast(toastId, received, total);
+      else updateToastIndeterminate(toastId, received);
+    }
+    const blob = new Blob(chunks, { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = (name || 'folder') + '.zip';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    finishToast(toastId, true);
+  } catch (err) {
+    finishToast(toastId, false, err.message);
+  }
+}
+
+// Decrypt AES-256-GCM blob from server (matches encryption.js EncryptStream format)
+// Wire format: [12 bytes IV][ciphertext][16 bytes auth tag]
+async function decryptBlob(chunks, keyB64) {
+  const combined = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
+  let offset = 0;
+  for (const c of chunks) { combined.set(c, offset); offset += c.length; }
+
+  const iv = combined.slice(0, 12);
+  const tag = combined.slice(combined.length - 16);
+  const ciphertext = combined.slice(12, combined.length - 16);
+  // Recombine ciphertext + tag (SubtleCrypto expects them concatenated)
+  const cipherWithTag = new Uint8Array(ciphertext.length + tag.length);
+  cipherWithTag.set(ciphertext); cipherWithTag.set(tag, ciphertext.length);
+
+  const rawKey = Uint8Array.from(atob(keyB64.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, cipherWithTag);
+  return new Blob([plain]);
+}
+
+function createToast(id, name) {
+  const container = document.getElementById('dl-toasts');
+  const t = document.createElement('div');
+  t.className = 'dl-toast'; t.id = id;
+  t.innerHTML = `<div class="dl-toast-name">⬇ ${escHtml(name)}</div>
+    <div class="dl-bar-bg"><div class="dl-bar" id="${id}-bar"></div></div>
+    <div class="dl-status"><span id="${id}-pct">0%</span><span id="${id}-bytes">—</span></div>`;
+  container.appendChild(t);
+  return t;
+}
+
+function updateToast(id, received, total) {
+  const pct = Math.round((received / total) * 100);
+  const bar = document.getElementById(id + '-bar');
+  const pctEl = document.getElementById(id + '-pct');
+  const bytesEl = document.getElementById(id + '-bytes');
+  if (bar) bar.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '%';
+  if (bytesEl) bytesEl.textContent = `${fmtSize(received)} / ${fmtSize(total)}`;
+}
+
+function updateToastIndeterminate(id, received) {
+  const bar = document.getElementById(id + '-bar');
+  const pctEl = document.getElementById(id + '-pct');
+  const bytesEl = document.getElementById(id + '-bytes');
+  // Animate bar with a pulse when size unknown
+  if (bar) { bar.style.width = '60%'; bar.style.opacity = '0.7'; }
+  if (pctEl) pctEl.textContent = '...';
+  if (bytesEl) bytesEl.textContent = fmtSize(received);
+}
+
+function finishToast(id, success, errMsg) {
+  const t = document.getElementById(id);
+  if (!t) return;
+  if (success) {
+    const bar = document.getElementById(id + '-bar');
+    if (bar) { bar.style.width = '100%'; bar.style.background = 'var(--success)'; }
+    const pct = document.getElementById(id + '-pct');
+    if (pct) pct.textContent = '✓ Complete';
+  } else {
+    const bar = document.getElementById(id + '-bar');
+    if (bar) bar.style.background = 'var(--danger)';
+    const pct = document.getElementById(id + '-pct');
+    if (pct) pct.textContent = '✗ ' + (errMsg || 'Failed');
+  }
+  setTimeout(() => t.remove(), 4000);
+}
+
+function previewFile(path, name, mimeType) {
+  document.getElementById('preview-title').textContent = name;
+  const body = document.getElementById('preview-body');
+  const url = `${API}/access/${TOKEN}/preview?path=${encodeURIComponent(path)}`;
+  const previewErr = err => { body.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div>${escHtml(err.message || 'Preview failed')}</div>`; };
+  if (mimeType.startsWith('image/')) {
+    fetchAuth(url).then(r => r.blob()).then(b => { body.innerHTML = `<img src="${URL.createObjectURL(b)}" alt="${escHtml(name)}">`; }).catch(previewErr);
+  } else if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml')) {
+    fetchAuth(url).then(r => r.text()).then(t => { body.innerHTML = `<pre>${escHtml(t.slice(0,50000))}</pre>`; }).catch(previewErr);
+  } else if (mimeType.startsWith('audio/')) {
+    fetchAuth(url).then(r => r.blob()).then(b => { body.innerHTML = `<audio controls src="${URL.createObjectURL(b)}" style="width:100%"></audio>`; }).catch(previewErr);
+  } else if (mimeType.startsWith('video/')) {
+    fetchAuth(url).then(r => r.blob()).then(b => { body.innerHTML = `<video controls src="${URL.createObjectURL(b)}" style="max-width:100%;max-height:65vh"></video>`; }).catch(previewErr);
+  } else if (mimeType === 'application/pdf') {
+    fetchAuth(url).then(r => r.blob()).then(b => {
+      const objUrl = URL.createObjectURL(b);
+      body.innerHTML = `<iframe src="${objUrl}" style="width:100%;height:65vh;border:none;border-radius:8px;background:#fff"></iframe>`;
+      body.querySelector('iframe').onerror = () => renderPdfJs(b, body);
+    }).catch(previewErr);
+  } else {
+    body.innerHTML = `<div class="state-box"><div class="state-icon">📄</div>No preview for this file type. Use Download.</div>`;
+  }
+  document.getElementById('preview-modal').classList.add('show');
+}
+
+function closePreview() {
+  document.getElementById('preview-modal').classList.remove('show');
+  document.getElementById('preview-body').innerHTML = '';
+}
+
+// pdf.js fallback renderer (used when iframe PDF fails)
+async function renderPdfJs(blob, container) {
+  if (!window.pdfjsLib) {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    document.head.appendChild(s);
+    await new Promise(r => { s.onload = r; });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const arrayBuffer = await blob.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  container.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'width:100%;overflow-y:auto;max-height:65vh;display:flex;flex-direction:column;gap:8px;align-items:center';
+  container.appendChild(wrap);
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.4 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    canvas.style.cssText = 'max-width:100%;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.4)';
+    wrap.appendChild(canvas);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  }
+}
+
+const fetchAuth = (url, opts = {}) => fetch(url, { ...opts, headers: { ...opts.headers, 'Authorization': `Bearer ${SESSION_JWT}` } });
+function fileIcon(m, n) {
+  if (!m) return '📄';
+  if (m.startsWith('image/')) return '🖼️';
+  if (m.startsWith('video/')) return '🎬';
+  if (m.startsWith('audio/')) return '🎵';
+  if (m === 'application/pdf') return '📕';
+  if (m.startsWith('text/')) return '📝';
+  if (m.includes('zip')||m.includes('tar')||m.includes('gz')) return '📦';
+  if (n?.endsWith('.py')) return '🐍'; if (n?.endsWith('.js')||n?.endsWith('.ts')) return '⚡';
+  return '📄';
+}
+function fmtSize(b) { if(!b)return'0 B'; const u=['B','KB','MB','GB']; const i=Math.floor(Math.log(b)/Math.log(1024)); return `${(b/Math.pow(1024,i)).toFixed(1)} ${u[i]}`; }
+function escHtml(s) { if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
+function escAttr(s) { if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function showAuthError(m) { const e=document.getElementById('auth-error'); e.textContent=m; e.style.display='block'; }
+function hideAuthError() { document.getElementById('auth-error').style.display='none'; }
+
+document.addEventListener('click', e => {
+  const action = e.target.dataset.action;
+  if (action === 'close-preview') closePreview();
+  else if (action === 'preview') {
+    e.stopPropagation();
+    previewFile(e.target.dataset.path, e.target.dataset.name, e.target.dataset.mime);
+  }
+  else if (action === 'download') {
+    e.stopPropagation();
+    const dlBtn = e.target;
+    if (dlBtn.disabled) return;
+    dlBtn.disabled = true;
+    dlBtn.classList.add('downloading');
+    downloadFile(e.target.dataset.path, e.target.dataset.name).finally(() => {
+      dlBtn.disabled = false;
+      dlBtn.classList.remove('downloading');
+    });
+  }
+  else if (action === 'zip') {
+    e.stopPropagation();
+    const zipBtn = e.target;
+    if (zipBtn.disabled) return;
+    zipBtn.disabled = true;
+    downloadZip(e.target.dataset.path, e.target.dataset.name).finally(() => {
+      zipBtn.disabled = false;
+    });
+  }
+  else if (action === 'nav') {
+    loadDirectory(e.target.dataset.path);
+  }
+  else if (e.target.closest('.file-row')) {
+    const row = e.target.closest('.file-row');
+    if (row.dataset.type === 'directory' && !e.target.closest('.file-actions')) {
+      loadDirectory(row.dataset.path);
+    }
+  }
+  else if (e.target === document.getElementById('preview-modal')) {
+    closePreview();
+  }
+});
+
+document.getElementById('auth-btn').addEventListener('click', authenticate);
+document.getElementById('pw-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') authenticate();
+});
+
+init();
+</script>
+</body>
+</html>

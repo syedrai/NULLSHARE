@@ -1,0 +1,120 @@
+version: '3.9'
+
+services:
+
+  # ── NullShare App ────────────────────────────────────────────────────────────
+  nullshare:
+    build: .
+    container_name: nullshare
+    restart: unless-stopped
+    ports:
+      - "3000:3000"       # HTTP (or HTTPS if TLS_ENABLED=true)
+      - "3001:3001"       # HTTP→HTTPS redirect port (only used when TLS_ENABLED=true)
+    volumes:
+      - ./backend/data:/app/data          # SQLite database persistence
+      - ./backend/certs:/app/certs:ro     # TLS certs (mount after running setup-tls)
+      - nullshare_shares:/shares          # Default shared folder mount point
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+
+      # TLS (set TLS_ENABLED=true and mount certs above)
+      TLS_ENABLED: ${TLS_ENABLED:-false}
+      TLS_CERT: ${TLS_CERT:-./certs/nullshare.pem}
+      TLS_KEY: ${TLS_KEY:-./certs/nullshare-key.pem}
+
+      # S3 (set S3_ENABLED=true to use MinIO or AWS S3)
+      S3_ENABLED: ${S3_ENABLED:-false}
+      S3_BUCKET: ${S3_BUCKET:-nullshare}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}        # e.g. http://minio:9000 for local MinIO
+      S3_PATH_STYLE: ${S3_PATH_STYLE:-false}
+
+      # Encryption
+      ENCRYPTION_ENABLED: ${ENCRYPTION_ENABLED:-false}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:-}
+
+      # API keys (optional)
+      VIRUSTOTAL_KEY: ${VIRUSTOTAL_KEY:-}
+      ABUSEIPDB_KEY: ${ABUSEIPDB_KEY:-}
+    networks:
+      - nullshare_net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── MinIO (local S3-compatible storage) ─────────────────────────────────────
+  # Only starts when S3_ENABLED=true — use: docker compose --profile s3 up
+  minio:
+    image: minio/minio:latest
+    container_name: nullshare_minio
+    profiles: ["s3"]
+    restart: unless-stopped
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # MinIO Console UI
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-nullshare}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
+    command: server /data --console-address ":9001"
+    networks:
+      - nullshare_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Nginx TLS reverse proxy ──────────────────────────────────────────────────
+  # Only starts when using: docker compose --profile tls up
+  nginx:
+    image: nginx:alpine
+    container_name: nullshare_nginx
+    profiles: ["tls"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/nullshare.conf:ro
+      - ./backend/certs:/etc/nullshare/certs:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_certs:/etc/letsencrypt:ro
+    depends_on:
+      - nullshare
+    networks:
+      - nullshare_net
+
+  # ── Certbot (Let's Encrypt cert renewal) ────────────────────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    container_name: nullshare_certbot
+    profiles: ["tls"]
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+    entrypoint: >
+      sh -c "trap exit TERM;
+             while :; do
+               certbot renew --webroot -w /var/www/certbot --quiet;
+               sleep 12h & wait $${!};
+             done"
+
+volumes:
+  nullshare_shares:
+  minio_data:
+  certbot_www:
+  certbot_certs:
+
+networks:
+  nullshare_net:
+    driver: bridge

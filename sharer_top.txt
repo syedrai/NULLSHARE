@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NullShare ƒ?" Sharer Dashboard v2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap');
+:root{--bg:#0a0a0f;--surface:#111118;--surface2:#1a1a25;--border:#2a2a3a;--accent:#00d4ff;--accent2:#7c3aed;--danger:#ef4444;--success:#22c55e;--warn:#f59e0b;--text:#e2e8f0;--dim:#64748b;--mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
+.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:24px 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.logo{padding:0 24px 24px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.logo-mark{font-size:22px;font-weight:800;color:var(--accent);letter-spacing:-0.5px}
+.logo-mark span{color:var(--dim)}
+.logo-sub{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:3px;letter-spacing:1.5px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 24px;cursor:pointer;font-size:13px;font-weight:600;color:var(--dim);transition:all .15s;border-left:3px solid transparent}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,212,255,.05)}
+.nav-item svg{width:16px;height:16px;flex-shrink:0}
+.ws-indicator{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;padding:4px 8px;border-radius:4px;margin-left:auto}
+.ws-indicator.connected{color:var(--success)}
+.ws-indicator.disconnected{color:var(--dim)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.dot.pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.sidebar-footer{margin-top:auto;padding:16px 24px;border-top:1px solid var(--border)}
+.sf-row{font-family:var(--mono);font-size:10px;color:var(--dim);display:flex;align-items:center;gap:8px;margin-bottom:6px}
+
+/* Main */
+.main{padding:36px;overflow-y:auto}
+.page{display:none}
+.page.active{display:block;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.page-header{margin-bottom:28px;display:flex;align-items:flex-start;justify-content:space-between}
+.page-title{font-size:26px;font-weight:800;letter-spacing:-0.5px}
+.page-sub{color:var(--dim);font-size:12px;margin-top:5px;font-family:var(--mono)}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+
+/* Form */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:7px}
+.form-group.full{grid-column:1/-1}
+label{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+input,select{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-family:var(--mono);font-size:13px;transition:border-color .15s;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+input::placeholder{color:var(--dim)}
+select option{background:var(--surface)}
+.radio-group{display:flex;gap:10px}
+.radio-opt{flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px}
+.radio-opt input{width:13px;height:13px;accent-color:var(--accent)}
+.radio-opt:has(input:checked){border-color:var(--accent);background:rgba(0,212,255,.06);color:var(--accent)}
+.checkbox-row{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;color:var(--dim);cursor:pointer}
+.checkbox-row input{width:14px;height:14px;accent-color:var(--warn);cursor:pointer}
+.checkbox-row:has(input:checked){color:var(--warn)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:8px;font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;transition:all .15s;border:none;outline:none}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover{background:#00b8e0;transform:translateY(-1px)}
+.btn-warn{background:rgba(245,158,11,.15);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.btn-warn:hover{background:rgba(245,158,11,.25)}
+.btn-danger{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
+.btn-danger:hover{background:rgba(239,68,68,.25)}
+.btn-ghost{background:transparent;color:var(--dim);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text);border-color:var(--dim)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+.btn-row{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+
+/* Alert */
+.alert{display:none;padding:13px 18px;border-radius:8px;font-family:var(--mono);font-size:12px;margin-bottom:16px;border:1px solid}
+.alert.success{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--success)}
+.alert.error{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:var(--danger)}
+.alert.warn{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:var(--warn)}
+.alert.show{display:block}
+
+/* Result */
+.share-result{display:none;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);border-radius:12px;padding:22px;margin-top:20px}
+.share-result.show{display:block;animation:fadeIn .3s ease}
+.result-body{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start}
+.url-box{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin:10px 0}
+.url-text{flex:1;font-family:var(--mono);font-size:11px;color:var(--accent);word-break:break-all}
+.qr-box img{width:140px;height:140px;border-radius:8px;border:2px solid var(--border)}
+.result-meta{font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+.scan-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:5px;font-weight:700}
+.scan-clean{background:rgba(34,197,94,.15);color:var(--success);border:1px solid rgba(34,197,94,.3)}
+.scan-skipped{background:rgba(100,116,139,.15);color:var(--dim);border:1px solid var(--border)}
+.scan-infected{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
+
+/* Shares list */
+.shares-grid{display:flex;flex-direction:column;gap:12px}
+.share-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:18px;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
+.share-card.revoked{opacity:.4}
+.share-label{font-weight:700;font-size:14px;margin-bottom:5px}
+.share-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.badge{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.badge-view{background:rgba(124,58,237,.2);color:#a78bfa;border:1px solid rgba(124,58,237,.3)}
+.badge-download{background:rgba(0,212,255,.15);color:var(--accent);border:1px solid rgba(0,212,255,.3)}
+.badge-expired{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
+.badge-active{background:rgba(34,197,94,.15);color:var(--success);border:1px solid rgba(34,197,94,.3)}
+.badge-revoked{background:rgba(100,116,139,.15);color:var(--dim);border:1px solid var(--border)}
+.badge-pw{background:rgba(245,158,11,.15);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.share-path{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:5px}
+.card-actions{display:flex;flex-direction:column;gap:7px;align-items:flex-end}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px}
+.stat-value{font-size:30px;font-weight:800;color:var(--accent);letter-spacing:-1px}
+.stat-label{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+
+/* Live log */
+.log-feed{background:var(--bg);border:1px solid var(--border);border-radius:10px;height:420px;overflow-y:auto;font-family:var(--mono);font-size:11px}
+.log-row{display:grid;grid-template-columns:140px 80px 110px 120px 1fr 70px;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.03);transition:background .1s;align-items:center}
+.log-row:hover{background:rgba(255,255,255,.02)}
+.log-row.new{animation:logIn .4s ease}
+@keyframes logIn{from{background:rgba(0,212,255,.08)}to{background:transparent}}
+.log-head{grid-template-columns:140px 80px 110px 120px 1fr 70px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;padding:8px 14px;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;display:grid;gap:10px}
+.status-allowed{color:var(--success)}
+.status-denied{color:var(--danger)}
+.action-tag{font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,.06)}
+.live-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--success);background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);padding:4px 10px;border-radius:5px}
+
+/* Empty */
+.empty{text-align:center;padding:50px 20px;color:var(--dim);font-family:var(--mono);font-size:12px}
+.empty-icon{font-size:36px;margin-bottom:10px}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">Null<span>Share</span></div>
+    <div class="logo-sub">NullGrids Security Aú v2.0</div>
+  </div>
+  <nav>
+    <div class="nav-item active" onclick="showPage('create',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      Create Share
+    </div>
+    <div class="nav-item" onclick="showPage('shares',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg>
+      Active Shares
+    </div>
+    <div class="nav-item" onclick="showPage('logs',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      Live Logs
+      <span class="ws-indicator disconnected" id="ws-badge"><span class="dot"></span><span id="ws-label">offline</span></span>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sf-row"><span class="dot pulse" style="color:var(--success)"></span>Server: localhost:3000</div>
+    <div class="sf-row" style="margin-top:4px;font-size:9px">Nullfist Aú NullGrids Aú 2025</div>
+  </div>
+</aside>
+
+<main class="main">
+
+<!-- ƒ"?ƒ"? Create Share ƒ"?ƒ"? -->
+<div id="page-create" class="page active">
+  <div class="page-header">
+    <div><div class="page-title">Create Share</div><div class="page-sub">// configure folder, security, and access controls</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">dY"? Share Configuration</div>
+    <div id="create-alert" class="alert"></div>
+    <form id="create-form" onsubmit="createShare(event)">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Folder Path *</label>
+          <input id="folderPath" type="text" placeholder="C:\Users\syedh\OneDrive\Desktop\your-folder" required>
+        </div>
+        <div class="form-group">
+          <label>Share Label</label>
+          <input id="label" type="text" placeholder="My Project Files (optional)">
+        </div>
+        <div class="form-group">
+          <label>Link Expiry</label>
+          <select id="expiresIn">
+            <option value="">Never</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="360">6 hours</option>
+            <option value="1440">24 hours</option>
+            <option value="10080">7 days</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Permission Level</label>
+          <div class="radio-group">
+            <label class="radio-opt"><input type="radio" name="perm" value="view" checked>dY`? View Only ƒ?" browse, no download</label>
+            <label class="radio-opt"><input type="radio" name="perm" value="download">ƒªØ Download Enabled ƒ?" browse + download</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Password (optional)</label>
+          <input id="password" type="password" placeholder="Leave blank for no password">
+        </div>
+        <div class="form-group">
+          <label>IP Whitelist (optional, comma-separated)</label>
+          <input id="allowedIPs" placeholder="192.168.1.5, 10.0.0.2">
+        </div>
+        <div class="form-group full">
+          <label class="checkbox-row" style="display:flex">
+            <input type="checkbox" id="scanBeforeShare">
+            dYÝÿ Scan folder for malware with ClamAV before sharing
+            <span style="color:var(--dim);font-size:10px;margin-left:6px">(requires ClamAV installed)</span>
+          </label>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary" id="create-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.7"/></svg>
+          Generate Share Link
+        </button>
+      </div>
+    </form>
+
+    <div id="share-result" class="share-result">
+      <div style="font-weight:700;font-size:14px;color:var(--success);margin-bottom:14px">ƒo" Share link created successfully</div>
+      <div class="result-body">
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:6px">SHARE URL</div>
+          <div class="url-box">
+            <div class="url-text" id="result-url"></div>
+            <button class="btn btn-ghost" onclick="copyUrl()" style="padding:6px 12px;font-size:11px">Copy</button>
+          </div>
+          <div class="result-meta" id="result-meta"></div>
+          <div id="scan-result-badge" style="margin-top:10px"></div>
+        </div>
+        <div class="qr-box" id="qr-box" style="display:none">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:8px">SCAN TO OPEN</div>
+          <img id="qr-img" src="" alt="QR Code">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ƒ"?ƒ"? Active Shares ƒ"?ƒ"? -->
+<div id="page-shares" class="page">
+  <div class="page-header">
+    <div><div class="page-title">Active Shares</div><div class="page-sub">// manage and revoke existing shares</div></div>
+    <button class="btn btn-ghost" onclick="loadShares()" style="padding:9px 14px;font-size:12px">ƒ+¯ Refresh</button>
+  </div>
+  <div id="shares-list" class="shares-grid"><div class="empty"><div class="empty-icon">dY",</div>No shares yet.</div></div>
+</div>
+
+<!-- ƒ"?ƒ"? Live Logs ƒ"?ƒ"? -->
+<div id="page-logs" class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Live Access Logs</div>
+      <div class="page-sub">// real-time WebSocket feed Aú all file access events</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="live-badge" id="live-badge"><span class="dot pulse"></span>LIVE</span>
+      <button class="btn btn-ghost" onclick="clearLogs()" style="padding:9px 14px;font-size:12px">Clear</button>
+      <button class="btn btn-ghost" onclick="loadLogsFromAPI()" style="padding:9px 14px;font-size:12px">ƒ+¯ History</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Total Events</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-allowed" style="color:var(--success)">0</div><div class="stat-label">Allowed</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-denied" style="color:var(--danger)">0</div><div class="stat-label">Denied / Blocked</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-dl" style="color:var(--accent2)">0</div><div class="stat-label">Downloads</div></div>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="log-head">
+      <span>Timestamp</span><span>Status</span><span>IP Address</span><span>Action</span><span>File</span><span>Share</span>
+    </div>
+    <div id="log-feed" class="log-feed">
+      <div class="empty" style="padding:30px">Waiting for activity... Connect a share to see live events.</div>
+    </div>
