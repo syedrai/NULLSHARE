@@ -58,6 +58,21 @@ select option{background:var(--surface)}
 .checkbox-row input{width:14px;height:14px;accent-color:var(--warn);cursor:pointer}
 .checkbox-row:has(input:checked){color:var(--warn)}
 
+/* Folder browser */
+.fb-wrap{position:relative}
+.fb-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:200;max-height:260px;overflow-y:auto;display:none}
+.fb-dropdown.open{display:block}
+.fb-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-family:var(--mono);font-size:12px;border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s}
+.fb-item:last-child{border-bottom:none}
+.fb-item:hover{background:rgba(0,212,255,.08)}
+.fb-item-up{color:var(--dim)}
+.fb-item-dir{color:var(--text)}
+.fb-item-drive{color:var(--accent);font-weight:700}
+.fb-select-btn{background:rgba(0,212,255,.15);color:var(--accent);border:1px solid rgba(0,212,255,.3);padding:5px 12px;border-radius:5px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;margin-left:auto;flex-shrink:0}
+.fb-select-btn:hover{background:rgba(0,212,255,.25)}
+.fb-current{font-family:var(--mono);font-size:10px;color:var(--dim);padding:7px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.fb-loading{padding:16px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--dim)}
+
 /* Buttons */
 .btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:8px;font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;transition:all .15s;border:none;outline:none}
 .btn-primary{background:var(--accent);color:#000}
@@ -177,7 +192,15 @@ select option{background:var(--surface)}
       <div class="form-grid">
         <div class="form-group full">
           <label>Folder Path *</label>
-          <input id="folderPath" type="text" placeholder="C:\Users\syedh\OneDrive\Desktop\your-folder" required>
+          <div class="fb-wrap">
+            <div style="display:flex;gap:8px">
+              <input id="folderPath" type="text" placeholder="Type a path or click Browse to navigate" required style="flex:1" autocomplete="off">
+              <button type="button" class="btn btn-ghost" data-action="browse-folder" style="padding:10px 16px;font-size:12px;white-space:nowrap">📁 Browse</button>
+            </div>
+            <div class="fb-dropdown" id="fb-dropdown">
+              <div class="fb-loading" id="fb-loading">Loading...</div>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <label>Share Label</label>
@@ -314,6 +337,7 @@ document.addEventListener('click', e => {
   else if (action === 'refresh-shares') loadShares();
   else if (action === 'clear-logs') clearLogs();
   else if (action === 'load-logs') loadLogsFromAPI();
+  else if (action === 'browse-folder') browseFolder();
   else if (action === 'create-share') createShare();
   else if (action === 'copy-url') navigator.clipboard.writeText(document.getElementById('result-url').textContent).then(() => { e.target.textContent = 'Copied!'; setTimeout(() => e.target.textContent = 'Copy', 2000); });
   else if (action === 'open-share') window.open('/share/' + e.target.dataset.token, '_blank');
@@ -408,6 +432,88 @@ async function loadLogsFromAPI() {
 }
 
 const BTN_HTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.7"/></svg> Generate Share Link';
+
+let fbOpen = false;
+
+async function fsBrowse(path) {
+  const dd = document.getElementById('fb-dropdown');
+  const loading = document.getElementById('fb-loading');
+  dd.classList.add('open');
+  fbOpen = true;
+  loading.style.display = 'block';
+  loading.textContent = 'Loading...';
+  try {
+    const url = API + '/shares/fs-browse' + (path ? '?path=' + encodeURIComponent(path) : '');
+    const data = await fetch(url).then(r => r.json());
+    if (data.error) { loading.textContent = '⚠ ' + data.error; return; }
+    loading.style.display = 'none';
+    let html = '';
+    if (data.current) {
+      html += `<div class="fb-current">📂 ${escHtmlFb(data.current)}</div>`;
+    }
+    if (data.parent) {
+      html += `<div class="fb-item fb-item-up" data-fb-path="${escAttrFb(data.parent)}">⬆ .. (up)</div>`;
+    }
+    if (!data.entries.length) {
+      html += `<div class="fb-item" style="color:var(--dim);cursor:default">No subfolders</div>`;
+    }
+    data.entries.forEach(e => {
+      const cls = e.type === 'drive' ? 'fb-item-drive' : 'fb-item-dir';
+      const icon = e.type === 'drive' ? '💾' : '📁';
+      html += `<div class="fb-item ${cls}" data-fb-path="${escAttrFb(e.path)}">${icon} ${escHtmlFb(e.name)}<button class="fb-select-btn" data-fb-select="${escAttrFb(e.path)}">Select</button></div>`;
+    });
+    if (data.current) {
+      html += `<div style="padding:8px 14px;border-top:1px solid var(--border)"><button class="fb-select-btn" style="width:100%;justify-content:center" data-fb-select="${escAttrFb(data.current)}">✓ Select This Folder</button></div>`;
+    }
+    dd.innerHTML = html;
+  } catch { loading.textContent = 'Failed to load'; }
+}
+
+function fbClose() {
+  document.getElementById('fb-dropdown').classList.remove('open');
+  fbOpen = false;
+}
+
+function fbSelect(path) {
+  document.getElementById('folderPath').value = path;
+  fbClose();
+}
+
+async function browseFolder() {
+  const btn = document.querySelector('[data-action="browse-folder"]');
+  if (fbOpen) { fbClose(); return; }
+  // Try PowerShell native picker first (localhost), fall back to fs-browse
+  try {
+    const data = await fetch(API + '/shares/browse-folder').then(r => r.json());
+    if (!data.cancelled && data.path) { document.getElementById('folderPath').value = data.path; return; }
+  } catch {}
+  // Fallback: open fs-browse dropdown
+  fsBrowse('');
+}
+
+// Folder browser click delegation
+document.addEventListener('click', e => {
+  const selectPath = e.target.dataset.fbSelect;
+  const browsePath = e.target.closest('[data-fb-path]');
+  if (selectPath !== undefined) {
+    e.stopPropagation();
+    fbSelect(selectPath);
+  } else if (browsePath && !e.target.dataset.fbSelect) {
+    e.stopPropagation();
+    fsBrowse(browsePath.dataset.fbPath);
+  } else if (fbOpen && !e.target.closest('.fb-wrap')) {
+    fbClose();
+  }
+}, true);
+
+// Typing in path input also triggers browse
+document.getElementById('folderPath').addEventListener('input', function() {
+  if (this.value.length > 2) fsBrowse(this.value);
+  else if (!this.value) fbClose();
+});
+
+function escHtmlFb(s) { if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttrFb(s) { if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 async function createShare() {
   const btn = document.getElementById('create-btn');
