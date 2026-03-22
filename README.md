@@ -27,15 +27,21 @@
 
 > **Sharer Dashboard** — Create shares, generate QR codes, scan for malware, monitor live access logs.
 
-![Sharer Dashboard](docs/screenshots/dashboard.png)
+<img width="1919" height="855" alt="image" src="https://github.com/user-attachments/assets/f4cf564c-f592-45ec-9684-dc996759e039" />
+
+
 
 > **Receiver File Browser** — Authenticate, browse folders, preview files, download with real-time progress.
 
-![Receiver Browser](docs/screenshots/receiver.png)
+<img width="1918" height="871" alt="image" src="https://github.com/user-attachments/assets/a0e3d124-1460-4736-be8b-99fa45cb5409" />
+<img width="1919" height="854" alt="image" src="https://github.com/user-attachments/assets/cbfa0a48-968a-49aa-ad99-f521f277a951" />
+<img width="1919" height="1024" alt="image" src="https://github.com/user-attachments/assets/8e9adc6e-b03b-4465-a0e4-8f7d6a65de91" />
+
 
 > **Live Access Logs** — Real-time WebSocket feed showing every access event: IP, action, file path, status.
 
-![Live Logs](docs/screenshots/logs.png)
+<img width="1919" height="878" alt="image" src="https://github.com/user-attachments/assets/e2c2d0fe-09c2-433f-8f9b-27cadd18c65d" />
+
 
 > 💡 **No screenshots yet?** Run the project, take a screenshot of each view, and place them in `docs/screenshots/`. GitHub renders them automatically.
 
